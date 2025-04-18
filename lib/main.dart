@@ -1,56 +1,86 @@
 import 'package:flutter/material.dart';
-// Import the database helper
-import 'database_helper.dart';
-import 'dart:io'; // Import dart:io to check the platform
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Import the FFI package
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-void main() {
-  // Ensure Flutter bindings are initialized before using plugins
+// Import the new widgets
+import 'widgets/app_drawer.dart';
+import 'widgets/add_item_dialog.dart';
+import 'database_helper.dart'; // Your database helper import
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize FFI specifically for non-mobile platforms
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    // Initialize FFI
     sqfliteFfiInit();
-    // Change the default factory for sqflite to use the FFI implementation
     databaseFactory = databaseFactoryFfi;
-    print("SQFlite FFI initialized for Desktop."); // Optional: for confirmation
+    print("SQFlite FFI initialized for Desktop.");
   }
   runApp(MyApp());
 }
 
-// Enum to represent the different categories (can stay here or move)
+// Keep Category enum here or move it to a separate models file if preferred
 enum Category { bookmarks, playlists, tasks }
+
+// --- Helper functions moved here to be easily passed to AppDrawer ---
+// (Alternatively, they could be static methods in a helper class)
+String getTitleForCategory(Category category) {
+  switch (category) {
+    case Category.bookmarks: return 'Bookmarks';
+    case Category.playlists: return 'Playlists';
+    case Category.tasks: return 'Tasks';
+  }
+}
+
+IconData getIconForDrawerCategory(Category category) {
+   switch (category) {
+    case Category.bookmarks: return Icons.bookmark;
+    case Category.playlists: return Icons.playlist_play;
+    case Category.tasks: return Icons.task_alt;
+    default: return Icons.list; // Should not happen with enum
+  }
+}
+
+// Icon for the list items (can stay in _MyHomePageState or move here too)
+IconData getIconForItem(Category category) {
+   switch (category) {
+    case Category.bookmarks: return Icons.bookmark_border;
+    case Category.playlists: return Icons.library_music_outlined; // Example change
+    case Category.tasks: return Icons.check_circle_outline;
+    default: return Icons.list_alt;
+  }
+}
+// --- End Helper Functions ---
+
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'All-In-One Manager',
-      themeMode: ThemeMode.dark,
-      darkTheme: ThemeData.dark().copyWith(
-        primaryColor: Colors.blueGrey[700],
-        colorScheme: ColorScheme.dark(
-          primary: Colors.tealAccent[400]!,
-          secondary: Colors.blueGrey[600]!,
-        ),
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.grey[900],
-          elevation: 4,
-        ),
-        floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: Colors.tealAccent[400],
-          foregroundColor: Colors.black,
-        ),
-        drawerTheme: DrawerThemeData(backgroundColor: Colors.grey[850]),
-        listTileTheme: ListTileThemeData(
-          selectedTileColor: Colors.tealAccent.withOpacity(0.15),
-        ),
-        dialogBackgroundColor: Colors.grey[800],
-      ),
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+       title: 'All-In-One Manager',
+       themeMode: ThemeMode.dark, // Or ThemeMode.system
+       darkTheme: ThemeData.dark().copyWith(
+         // Your dark theme customizations...
+         colorScheme: ColorScheme.dark(
+            primary: Colors.tealAccent[400]!,
+            secondary: Colors.blueGrey[600]!,
+            onSecondary: Colors.white, // Text on secondary color
+            // Ensure other colors are suitable too
+         ),
+         appBarTheme: AppBarTheme( backgroundColor: Colors.grey[900], elevation: 4),
+         floatingActionButtonTheme: FloatingActionButtonThemeData(
+             backgroundColor: Colors.tealAccent[400], foregroundColor: Colors.black),
+         drawerTheme: DrawerThemeData( backgroundColor: Colors.grey[850]),
+         listTileTheme: ListTileThemeData(
+             selectedTileColor: Colors.tealAccent.withOpacity(0.15)),
+         dialogBackgroundColor: Colors.grey[800],
+         // Add input decoration theme for dialog text field maybe
+         inputDecorationTheme: const InputDecorationTheme(
+           // Define styling for text fields globally or specifically
+         ),
+       ),
+       theme: ThemeData( // Your light theme...
+         primarySwatch: Colors.blue,
+         visualDensity: VisualDensity.adaptivePlatformDensity,
+       ),
       home: MyHomePage(),
       debugShowCheckedModeBanner: false,
     );
@@ -64,36 +94,21 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Category _selectedCategory = Category.bookmarks;
-  List<String> _currentItems = []; // Holds items fetched from DB
-  bool _isLoading = false; // To show loading indicator
-
-  // Database helper instance
+  List<String> _currentItems = [];
+  bool _isLoading = false;
   final dbHelper = DatabaseHelper.instance;
 
   @override
   void initState() {
     super.initState();
-    // Load initial data when the widget is first created
     _loadItems(_selectedCategory);
   }
 
-  // --- Database Interaction ---
-
+  // --- Database Interaction (keep as before) ---
   Future<void> _loadItems(Category category) async {
-    // Show loading indicator
-    if (mounted) {
-      // Check if widget is still in the tree
-      setState(() {
-        _isLoading = true;
-      });
-    }
-
-    // Fetch items from database
+    if (mounted) setState(() => _isLoading = true);
     final items = await dbHelper.getItems(category);
-
-    // Update state with fetched items and hide loading indicator
     if (mounted) {
-      // Check again before calling setState
       setState(() {
         _currentItems = items;
         _isLoading = false;
@@ -102,215 +117,106 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _insertItem(String content) async {
-    if (content.trim().isEmpty) return; // Avoid adding empty items
-
+    if (content.trim().isEmpty) return;
     await dbHelper.insertItem(_selectedCategory, content.trim());
-    // Refresh the list after insertion
-    await _loadItems(_selectedCategory);
-  }
-
-  // --- UI Helper Functions ---
-
-  String _getTitleForCategory(Category category) {
-    switch (category) {
-      case Category.bookmarks:
-        return 'Bookmarks';
-      case Category.playlists:
-        return 'Playlists';
-      case Category.tasks:
-        return 'Tasks';
-    }
-  }
-
-  IconData _getIconForCategory(Category category) {
-    switch (category) {
-      case Category.bookmarks:
-        return Icons.bookmark_border;
-      case Category.playlists:
-        return Icons.playlist_play;
-      case Category.tasks:
-        return Icons.check_circle_outline; // Changed task icon slightly
-      default:
-        return Icons.list;
-    }
-  }
-
-  IconData _getIconForDrawerCategory(Category category) {
-    switch (category) {
-      case Category.bookmarks:
-        return Icons.bookmark;
-      case Category.playlists:
-        return Icons.playlist_play;
-      case Category.tasks:
-        return Icons.task_alt; // Keep filled icon for drawer task
-      default:
-        return Icons.list;
-    }
+    await _loadItems(_selectedCategory); // Refresh list
   }
 
   // --- Event Handlers ---
 
+  // Called by AppDrawer
   void _onCategorySelected(Category category) {
     if (_selectedCategory != category) {
       if (mounted) {
         setState(() {
           _selectedCategory = category;
-          // Don't clear _currentItems here, let _loadItems handle it
+          // Trigger loading state immediately for smoother transition
+          _isLoading = true;
+          _currentItems = []; // Optionally clear old items immediately
         });
       }
       _loadItems(category); // Load items for the new category
     }
-    Navigator.pop(context); // Close the drawer
+    Navigator.pop(context); // Close the drawer AFTER state update begins
   }
 
+  // Called by FloatingActionButton onPressed
   void _showAddItemDialog() {
-    final TextEditingController textController = TextEditingController();
-    final categoryName = _getTitleForCategory(_selectedCategory);
-    String inputHint;
-
-    switch (_selectedCategory) {
-      case Category.bookmarks:
-        inputHint = 'Enter bookmark URL or name';
-        break;
-      case Category.playlists:
-        inputHint = 'Enter playlist name or link';
-        break;
-      case Category.tasks:
-        inputHint = 'Enter task description';
-        break;
-    }
-
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Add New $categoryName'),
-          content: TextField(
-            controller: textController,
-            autofocus: true,
-            decoration: InputDecoration(hintText: inputHint),
-            onSubmitted:
-                (_) => _submitAddItemDialog(textController, dialogContext),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                textController.dispose(); // Dispose on cancel
-              },
-            ),
-            ElevatedButton(
-              child: Text('Add'),
-              onPressed:
-                  () => _submitAddItemDialog(textController, dialogContext),
-            ),
-          ],
+        // Use the new AddItemDialog widget
+        return AddItemDialog(
+          selectedCategory: _selectedCategory,
+          // Pass the _insertItem method as the callback
+          onAddItem: (newItemText) {
+            _insertItem(newItemText);
+            // Optional: Show confirmation SnackBar
+            // ScaffoldMessenger.of(context).showSnackBar(
+            //   SnackBar(content: Text('"$newItemText" added!')),
+            // );
+          },
         );
       },
-    ).then((_) {
-      // Ensure controller is disposed if dialog is dismissed otherwise
-      // (less critical now since we dispose in actions, but safe)
-      // textController.dispose(); // Already disposed in actions
-    });
+    );
   }
 
-  // Modified to be async and call _insertItem
-  Future<void> _submitAddItemDialog(
-    TextEditingController controller,
-    BuildContext dialogContext,
-  ) async {
-    final String newItemText =
-        controller.text; // No need to trim here, _insertItem will do it
-
-    // Close the dialog FIRST to avoid context issues if _insertItem takes time
-    Navigator.of(dialogContext).pop();
-
-    // Insert the item into the database (this also reloads the list)
-    await _insertItem(newItemText);
-
-    controller.dispose(); // Dispose controller after use
-  }
-
+  // --- Build Method ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_getTitleForCategory(_selectedCategory))),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color:
-                    Theme.of(context).colorScheme.secondary, // Use theme color
-              ),
-              child: Text(
-                'Categories',
-                style: TextStyle(
-                  // Adjust color for better contrast on secondary background
-                  color: Theme.of(context).colorScheme.onSecondary,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            // Use Category.values.map for slightly cleaner drawer building
-            ...Category.values.map(
-              (category) => ListTile(
-                leading: Icon(_getIconForDrawerCategory(category)),
-                title: Text(_getTitleForCategory(category)),
-                onTap: () => _onCategorySelected(category),
-                selected: _selectedCategory == category,
-                // selectedTileColor is handled by theme
-              ),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        // Use the global helper function
+        title: Text(getTitleForCategory(_selectedCategory)),
       ),
-      body: _buildBody(), // Use helper function for body
+      // Use the new AppDrawer widget
+      drawer: AppDrawer(
+        selectedCategory: _selectedCategory,
+        onCategorySelected: _onCategorySelected,
+        // Pass the global helper functions
+        getTitleForCategory: getTitleForCategory,
+        getIconForDrawerCategory: getIconForDrawerCategory,
+      ),
+      body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddItemDialog, // Renamed _addItem to _showAddItemDialog
+        // Call the method that shows the refactored dialog
+        onPressed: _showAddItemDialog,
         tooltip: 'Add New Item',
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  // Helper widget to build the body content based on loading state
+  // Helper widget to build the body content (keep as before)
   Widget _buildBody() {
     if (_isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_currentItems.isEmpty) {
       return Center(
         child: Text(
-          'No items found in ${_getTitleForCategory(_selectedCategory)}.\nTap + to add one!',
+          'No items found in ${getTitleForCategory(_selectedCategory)}.\nTap + to add one!',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: Colors.grey[500]),
         ),
       );
     }
 
-    // Display the list using data from _currentItems
     return ListView.builder(
       itemCount: _currentItems.length,
       itemBuilder: (context, index) {
         final itemContent = _currentItems[index];
         return ListTile(
-          leading: Icon(
-            _getIconForCategory(_selectedCategory),
-            color: Theme.of(context).iconTheme.color?.withOpacity(0.7),
-          ), // Use theme icon color
+          // Use the global helper function for item icons
+          leading: Icon(getIconForItem(_selectedCategory),
+                     color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
           title: Text(itemContent),
           onTap: () {
-            // Add specific item action later
-            ScaffoldMessenger.of(context).showSnackBar(
+             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  'Tapped on: $itemContent (Action not implemented)',
-                ),
-                duration: Duration(seconds: 1),
+                content: Text('Tapped on: $itemContent (Action not implemented)'),
+                duration: const Duration(seconds: 1),
               ),
             );
           },
@@ -319,4 +225,4 @@ class _MyHomePageState extends State<MyHomePage> {
       },
     );
   }
-}
+} // End _MyHomePageState
