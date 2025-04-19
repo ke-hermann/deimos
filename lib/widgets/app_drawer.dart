@@ -11,12 +11,12 @@ class AppDrawer extends StatelessWidget {
 
 
   const AppDrawer({
-    Key? key,
+    super.key,
     required this.selectedCategory,
     required this.onCategorySelected,
     required this.getTitleForCategory,
     required this.getIconForDrawerCategory,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

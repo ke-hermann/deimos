@@ -7,10 +7,10 @@ class AddItemDialog extends StatefulWidget {
   final Function(String) onAddItem;
 
   const AddItemDialog({
-    Key? key,
+    super.key,
     required this.selectedCategory,
     required this.onAddItem,
-  }) : super(key: key);
+  });
 
   @override
   _AddItemDialogState createState() => _AddItemDialogState();
@@ -87,8 +87,8 @@ class _AddItemDialogState extends State<AddItemDialog> {
           },
         ),
         ElevatedButton(
-          child: const Text('Add'),
-          onPressed: _submit, // Call the internal submit method
+          onPressed: _submit,
+          child: const Text('Add'), // Call the internal submit method
         ),
       ],
     );

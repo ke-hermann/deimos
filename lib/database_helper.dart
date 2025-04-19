@@ -6,6 +6,20 @@ import 'package:sqflite/sqflite.dart';
 // Import the Category enum from main.dart (adjust path if needed)
 import 'main.dart';
 
+class DbEntry {
+  final int id;
+  final Category category;
+  final String content;
+  final DateTime createdAt; // Optional: Track creation time
+
+  DbEntry({
+    required this.id,
+    required this.category,
+    required this.content,
+    required this.createdAt,
+  });
+}
+
 class DatabaseHelper {
   // Database constants
   static const _databaseName = "items_manager.db";
@@ -64,22 +78,25 @@ class DatabaseHelper {
   }
 
   // Retrieves all items for a specific category, ordered by creation time (newest first)
-  Future<List<String>> getItems(Category category) async {
+  Future<List<DbEntry>> getItems(Category category) async {
     Database db = await instance.database;
-    List<Map<String, dynamic>> result = await db.query(
+    // obtain all items as a list of DbEntry objects
+    List<Map<String, dynamic>> maps = await db.query(
       tableItems,
-      columns: [columnContent], // Only fetch the content for now
       where: '$columnCategory = ?',
       whereArgs: [category.name],
-      orderBy: '$columnCreatedAt DESC', // Order by newest first
+      orderBy: '$columnCreatedAt DESC',
     );
-
-    // Convert the List<Map<String, dynamic>> into a List<String>
-    return result.map((map) => map[columnContent] as String).toList();
+    return List.generate(maps.length, (i) {
+      return DbEntry(
+        id: maps[i][columnId],
+        category: Category.values.firstWhere((e) => e.name == maps[i][columnCategory]),
+        content: maps[i][columnContent],
+        createdAt: DateTime.parse(maps[i][columnCreatedAt]), // Optional: Parse creation time
+      );
+    });
   }
 
-  // --- We might add methods like update and delete later ---
-  /*
   Future<int> updateItem(int id, String newContent) async {
     Database db = await instance.database;
     Map<String, dynamic> row = {
@@ -104,5 +121,4 @@ class DatabaseHelper {
        orderBy: '$columnCreatedAt DESC',
      );
    }
-  */
 }

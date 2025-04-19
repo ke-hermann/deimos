@@ -24,63 +24,83 @@ enum Category { bookmarks, playlists, tasks }
 // (Alternatively, they could be static methods in a helper class)
 String getTitleForCategory(Category category) {
   switch (category) {
-    case Category.bookmarks: return 'Bookmarks';
-    case Category.playlists: return 'Playlists';
-    case Category.tasks: return 'Tasks';
+    case Category.bookmarks:
+      return 'Bookmarks';
+    case Category.playlists:
+      return 'Playlists';
+    case Category.tasks:
+      return 'Tasks';
   }
 }
 
 IconData getIconForDrawerCategory(Category category) {
-   switch (category) {
-    case Category.bookmarks: return Icons.bookmark;
-    case Category.playlists: return Icons.playlist_play;
-    case Category.tasks: return Icons.task_alt;
-    default: return Icons.list; // Should not happen with enum
+  switch (category) {
+    case Category.bookmarks:
+      return Icons.bookmark;
+    case Category.playlists:
+      return Icons.playlist_play;
+    case Category.tasks:
+      return Icons.task_alt;
+    default:
+      return Icons.list; // Should not happen with enum
   }
 }
 
 // Icon for the list items (can stay in _MyHomePageState or move here too)
 IconData getIconForItem(Category category) {
-   switch (category) {
-    case Category.bookmarks: return Icons.bookmark_border;
-    case Category.playlists: return Icons.library_music_outlined; // Example change
-    case Category.tasks: return Icons.check_circle_outline;
-    default: return Icons.list_alt;
+  switch (category) {
+    case Category.bookmarks:
+      return Icons.bookmark_border;
+    case Category.playlists:
+      return Icons.library_music_outlined; // Example change
+    case Category.tasks:
+      return Icons.check_circle_outline;
+    default:
+      return Icons.list_alt;
   }
 }
 // --- End Helper Functions ---
 
-
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-       title: 'All-In-One Manager',
-       themeMode: ThemeMode.dark, // Or ThemeMode.system
-       darkTheme: ThemeData.dark().copyWith(
-         // Your dark theme customizations...
-         colorScheme: ColorScheme.dark(
-            primary: Colors.tealAccent[400]!,
-            secondary: Colors.blueGrey[600]!,
-            onSecondary: Colors.white, // Text on secondary color
-            // Ensure other colors are suitable too
-         ),
-         appBarTheme: AppBarTheme( backgroundColor: Colors.grey[900], elevation: 4),
-         floatingActionButtonTheme: FloatingActionButtonThemeData(
-             backgroundColor: Colors.tealAccent[400], foregroundColor: Colors.black),
-         drawerTheme: DrawerThemeData( backgroundColor: Colors.grey[850]),
-         listTileTheme: ListTileThemeData(
-             selectedTileColor: Colors.tealAccent.withOpacity(0.15)),
-         dialogBackgroundColor: Colors.grey[800],
-         // Add input decoration theme for dialog text field maybe
-         inputDecorationTheme: const InputDecorationTheme(
-           // Define styling for text fields globally or specifically
-         ),
-       ),
-       theme: ThemeData( // Your light theme...
-         primarySwatch: Colors.blue,
-         visualDensity: VisualDensity.adaptivePlatformDensity,
-       ),
+      title: 'All-In-One Manager',
+      themeMode: ThemeMode.dark, // Or ThemeMode.system
+      darkTheme: ThemeData.dark().copyWith(
+        // Your dark theme customizations...
+        colorScheme: ColorScheme.dark(
+          primary: Colors.tealAccent[400]!,
+          secondary: Colors.blueGrey[600]!,
+          onSecondary: Colors.white, // Text on secondary color
+          // Ensure other colors are suitable too
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.grey[900],
+          elevation: 4,
+        ),
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: Colors.tealAccent[400],
+          foregroundColor: Colors.black,
+        ),
+        drawerTheme: DrawerThemeData(backgroundColor: Colors.grey[850]),
+        listTileTheme: ListTileThemeData(
+          // ignore: deprecated_member_use
+          selectedTileColor: Colors.tealAccent.withOpacity(0.15),
+        ),
+        // Add input decoration theme for dialog text field maybe
+        inputDecorationTheme: const InputDecorationTheme(
+          // Define styling for text fields globally or specifically
+        ),
+        dialogTheme: DialogThemeData(backgroundColor: Colors.grey[800]),
+      ),
+      theme: ThemeData(
+        // Your light theme...
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
       home: MyHomePage(),
       debugShowCheckedModeBanner: false,
     );
@@ -88,13 +108,15 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
+
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   Category _selectedCategory = Category.bookmarks;
-  List<String> _currentItems = [];
+  List<DbEntry> _currentItems = [];
   bool _isLoading = false;
   final dbHelper = DatabaseHelper.instance;
 
@@ -119,6 +141,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _insertItem(String content) async {
     if (content.trim().isEmpty) return;
     await dbHelper.insertItem(_selectedCategory, content.trim());
+    await _loadItems(_selectedCategory); // Refresh list
+  }
+
+  Future<void> _deleteItem(int id) async {
+    await dbHelper.deleteItem(id);
     await _loadItems(_selectedCategory); // Refresh list
   }
 
@@ -151,10 +178,6 @@ class _MyHomePageState extends State<MyHomePage> {
           // Pass the _insertItem method as the callback
           onAddItem: (newItemText) {
             _insertItem(newItemText);
-            // Optional: Show confirmation SnackBar
-            // ScaffoldMessenger.of(context).showSnackBar(
-            //   SnackBar(content: Text('"$newItemText" added!')),
-            // );
           },
         );
       },
@@ -206,16 +229,44 @@ class _MyHomePageState extends State<MyHomePage> {
     return ListView.builder(
       itemCount: _currentItems.length,
       itemBuilder: (context, index) {
-        final itemContent = _currentItems[index];
+        final item = _currentItems[index];
         return ListTile(
           // Use the global helper function for item icons
-          leading: Icon(getIconForItem(_selectedCategory),
-                     color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
-          title: Text(itemContent),
+          leading: Icon(
+            getIconForItem(_selectedCategory),
+            // ignore: deprecated_member_use
+            color: Theme.of(context).iconTheme.color?.withOpacity(0.7),
+          ),
+          title: Text(item.content),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment:
+                MainAxisAlignment.end, // Align buttons to the right
+            children: <Widget>[
+              IconButton(
+                icon: const Icon(Icons.delete),
+                tooltip: 'Delete', // Accessibility
+                onPressed: () {
+                  _deleteItem(item.id);
+                  _loadItems(_selectedCategory); 
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                tooltip: 'Edit', // Accessibility
+                onPressed: () {
+                  // TODO: implement edit functionality
+                },
+              ),
+            ],
+          ),
+
           onTap: () {
-             ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Tapped on: $itemContent (Action not implemented)'),
+                content: Text(
+                  'Tapped on: $item (Action not implemented)',
+                ),
                 duration: const Duration(seconds: 1),
               ),
             );
